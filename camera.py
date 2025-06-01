@@ -35,7 +35,11 @@ def main():
         except Exception as e:
             print(e)
         print("got data", data)
-        print("data", data[0])
+        print("packet", struct.unpack("B", data[0:1]))
+        print("client", struct.unpack("18s", data[1:19]))
+        print("mac", struct.unpack("18B", data[19:37]))
+        print("ip", struct.unpack("16B", data[37:53]))
+
         if struct.unpack("B", data[0:1])[0] == 1:
             send_socket.sendto(build_response(), ("<broadcast>", SEND_PORT))
 
@@ -46,30 +50,37 @@ def build_response():
 
     model_id = "PyCam"
     content.append(
-        struct.pack("18s", model_id.encode("utf-8")[:10].ljust(10, b"\x00"))
+        struct.pack("18s", model_id.encode("utf-8")[:18].ljust(18, b"\x00"))
     )  # model name
     content.append(struct.pack("18B", *[0] * 18))  #  MAC
 
-    ipv4_address = "192.168.1.1"
-    packed_ipv4 = list(inet_pton(AF_INET, ipv4_address))
-    print(packed_ipv4)
+    ipv4_address = "192.168.20.144"
     content.append(
-        struct.pack("16B", *packed_ipv4 + [0] * (16 - len(packed_ipv4)))
-    )  # IP address
+        struct.pack("16s", ipv4_address.encode("utf-8")[:16].ljust(16, b"\x00"))
+    )  # ip address
     content.append(struct.pack("16B", *[0] * 16))  #  subnet mask
     content.append(struct.pack("16B", *[0] * 16))  #  gateway
-    content.append(struct.pack("20B", *[0] * 20))  #  unused
+    content.append(struct.pack("20B", *[0] * 20))  #  pasword
+    content.append(struct.pack("B", 0))  #  reserved
     content.append(struct.pack("H", 80))  #  port
-    content.append(struct.pack("B", 0))  #  upnp mapping status
+    content.append(struct.pack("B", 0))  #  status
     model_name = "My name"
     content.append(
         struct.pack("10s", model_name.encode("utf-8")[:10].ljust(10, b"\x00"))
     )  # model name
-    content.append(struct.pack("H", 80))  #  port
-    content.append(struct.pack("H", 80))  #  port
-    content.append(struct.pack("4H", 0, 0, 0, 0))  #  unused
-    content.append(struct.pack("B", 0))  #  ip type
+    content.append(struct.pack("B", 0))  #  reserved
+    content.append(struct.pack("H", 80))  #  http port
+    content.append(struct.pack("H", 0))  #  device port
+    content.append(struct.pack("H", 0))  #  tcp port
+    content.append(struct.pack("H", 0))  #  udp port
+    content.append(struct.pack("H", 0))  #  upload port
+    content.append(struct.pack("H", 0))  #  multicast port
+    content.append(struct.pack("B", 0))  #  network mode
     content.append(struct.pack("128s", "".encode("utf-8")))  #  DDNS url
+    content.append(struct.pack("B", 0))  #  ip type
+    print("len", len(content))
+    print("len2", len(b"".join(content)))
+    print(b"".join(content))
 
     # stitch together
     return b"".join(content)

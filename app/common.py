@@ -1,14 +1,22 @@
+# Copyright (C) none 
+#
+# This file is part of Camera Finder.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import struct
-from socket import (
-    AF_INET,
-    SHUT_RDWR,
-    SO_BROADCAST,
-    SO_REUSEADDR,
-    SOCK_DGRAM,
-    SOL_SOCKET,
-    socket,
-)
-import time
+from types import SimpleNamespace
 
 
 class ByteWriter:
@@ -36,56 +44,15 @@ class ByteReader:
         return value
 
 
-def main():
-    print("Hello from camera finder!")
-
-    RECEIVE_PORT = 7711
-    SEND_PORT = 7701
-    receive_socket = socket(AF_INET, SOCK_DGRAM)
-    receive_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-    receive_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-    send_socket = socket(AF_INET, SOCK_DGRAM)
-    send_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-    send_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-
-    try:
-        receive_socket.bind(("", RECEIVE_PORT))
-    except OSError as e:
-        print(e)
-        raise ValueError("Socket opening error")
-    send_socket.sendto(build_packet(), ("<broadcast>", SEND_PORT))
-
-    while True:
-        data = b""
-        try:
-            data = receive_socket.recv(1024)
-        except Exception as e:
-            print(e)
-        reader = ByteReader(data)
-        print("packet", reader.read("B")[0])
-        print("client", reader.read("18s")[0].rstrip(b"x\00"))
-        print("mac", reader.read("18B")[0])
-        print("ip", reader.read("16s")[0].rstrip(b"\x00"))
-        reader.read("16B")  # mask
-        reader.read("16B")  # gateway
-        reader.read("20B")  # passwd
-        reader.read("B")  # reserved
-        reader.read("H")  # port
-        reader.read("B")  # status
-        print("name", reader.read("10s")[0].rstrip(b"\x00"))
-
-
-def build_packet():
+def build_packet(mode=1, model_id="", ip_address="10.0.0.1", model_name=""):
     writer = ByteWriter()
-    writer.write("B", 1)
+    writer.write("B", mode)  # mode
 
-    model_id = "PyCamFinder"
     writer.write("18s", model_id.encode("utf-8")[:18].ljust(18, b"\x00"))  # model name
     writer.write("18B", *[0] * 18)  #  MAC
 
-    ipv4_address = "192.168.20.144"
     writer.write(
-        "16s", ipv4_address.encode("utf-8")[:16].ljust(16, b"\x00")
+        "16s", ip_address.encode("utf-8")[:16].ljust(16, b"\x00")
     )  # ip address
     writer.write("16B", *[0] * 16)  #  subnet mask
     writer.write("16B", *[0] * 16)  #  gateway
@@ -93,7 +60,6 @@ def build_packet():
     writer.write("B", 0)  #  reserved
     writer.write("H", 80)  #  port
     writer.write("B", 0)  #  status
-    model_name = "Finder"
     writer.write(
         "10s", model_name.encode("utf-8")[:10].ljust(10, b"\x00")
     )  # model name
@@ -110,5 +76,18 @@ def build_packet():
     return writer.get_bytes()
 
 
-if __name__ == "__main__":
-    main()
+def read_packet(data):
+    response = SimpleNamespace()
+    reader = ByteReader(data)
+    response.mode = reader.read("B")[0]
+    response.client = reader.read("18s")[0].rstrip(b"x\00")
+    response.mac = reader.read("18B")[0]
+    response.ip = reader.read("16s")[0].rstrip(b"\x00")
+    response.mask = reader.read("16B")
+    response.gateway = reader.read("16B")
+    response.password = reader.read("20B")
+    response.reserved = reader.read("B")
+    response.port = reader.read("H")[0]
+    response.status = reader.read("B")
+    response.name = reader.read("10s")[0].rstrip(b"\x00")
+    return response

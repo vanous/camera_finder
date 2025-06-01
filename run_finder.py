@@ -1,4 +1,4 @@
-# Copyright (C) 2025 vanous
+# Copyright (C) none 
 #
 # This file is part of Camera Finder.
 #
@@ -15,12 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-[project]
-name = "python-camera"
-version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "ifaddr>=0.2.0",
-]
+from app import finder
+
+if __name__ == "__main__":
+    finder.main()

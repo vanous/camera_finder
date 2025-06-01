@@ -1,4 +1,4 @@
-# Copyright (C) 2025 vanous
+# Copyright (C) none 
 #
 # This file is part of Camera Finder.
 #
@@ -15,12 +15,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-[project]
-name = "python-camera"
-version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "ifaddr>=0.2.0",
-]
+import ifaddr
+
+
+def get_interfaces():
+    data = []
+    for adapter in ifaddr.get_adapters():
+        for ip in adapter.ips:
+            if type(ip.ip) is tuple:  # ipv6 addresses, skip
+                continue
+            if ip.ip.startswith("169.254."):
+                continue  # local link addresses on Windows, skip
+            data.append((ip.ip, ip.nice_name))
+    return data

@@ -1,4 +1,4 @@
-# Copyright (C) none 
+# Copyright (C) 2025 vanous
 #
 # This file is part of Camera Finder.
 #

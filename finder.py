@@ -11,6 +11,18 @@ from socket import (
 import time
 
 
+class ByteReader:
+    def __init__(self, data):
+        self.data = data
+        self.offset = 0
+
+    def read(self, fmt):
+        size = struct.calcsize(fmt)
+        value = struct.unpack(fmt, self.data[self.offset : self.offset + size])
+        self.offset += size
+        return value
+
+
 def main():
     print("Hello from camera finder!")
 
@@ -36,11 +48,18 @@ def main():
             data = receive_socket.recv(1024)
         except Exception as e:
             print(e)
-
-        print(struct.unpack("B", data[0:1]))
-        print(struct.unpack("18s", data[1:19]))
-        print(struct.unpack("18B", data[19:37]))
-        print(struct.unpack("16B", data[37:53]))
+        reader = ByteReader(data)
+        print("packet", reader.read("B")[0])
+        print("client", reader.read("18s")[0].rstrip(b"x\00"))
+        print("mac", reader.read("18B")[0])
+        print("ip", reader.read("16s")[0].rstrip(b"\x00"))
+        reader.read("16B")  # mask
+        reader.read("16B")  # gateway
+        reader.read("20B")  # passwd
+        reader.read("B")  # reserved
+        reader.read("H")  # port
+        reader.read("B")  # status
+        print("name", reader.read("10s")[0].rstrip(b"\x00"))
 
 
 def build_packet():

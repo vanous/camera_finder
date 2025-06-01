@@ -38,7 +38,7 @@ def main():
         print("packet", struct.unpack("B", data[0:1]))
         print("client", struct.unpack("18s", data[1:19]))
         print("mac", struct.unpack("18B", data[19:37]))
-        print("ip", struct.unpack("16B", data[37:53]))
+        print("ip", struct.unpack("16s", data[37:53]))
 
         if struct.unpack("B", data[0:1])[0] == 1:
             send_socket.sendto(build_response(), ("<broadcast>", SEND_PORT))

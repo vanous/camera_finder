@@ -11,6 +11,19 @@ from socket import (
 import time
 
 
+class ByteWriter:
+    def __init__(self):
+        self.data = bytearray()  # Use bytearray for mutable byte storage
+
+    def write(self, fmt, *values):
+        # Pack the values according to the format and append to the data
+        packed_data = struct.pack(fmt, *values)
+        self.data.extend(packed_data)
+
+    def get_bytes(self):
+        return bytes(self.data)  # Return an immutable bytes object
+
+
 class ByteReader:
     def __init__(self, data):
         self.data = data
@@ -63,17 +76,38 @@ def main():
 
 
 def build_packet():
-    content = []
-    content.append(struct.pack("B", 1))
-    model_id = "PyCamFinder"
-    content.append(
-        struct.pack("18s", model_id.encode("utf-8")[:18].ljust(18, b"\x00"))
-    )  # model name
-    content.append(struct.pack("243B", *[0] * 243))  #  MAC
+    writer = ByteWriter()
+    writer.write("B", 1)
 
-    # stitch together
-    print(content, b"".join(content))
-    return b"".join(content)
+    model_id = "PyCamFinder"
+    writer.write("18s", model_id.encode("utf-8")[:18].ljust(18, b"\x00"))  # model name
+    writer.write("18B", *[0] * 18)  #  MAC
+
+    ipv4_address = "192.168.20.144"
+    writer.write(
+        "16s", ipv4_address.encode("utf-8")[:16].ljust(16, b"\x00")
+    )  # ip address
+    writer.write("16B", *[0] * 16)  #  subnet mask
+    writer.write("16B", *[0] * 16)  #  gateway
+    writer.write("20B", *[0] * 20)  #  pasword
+    writer.write("B", 0)  #  reserved
+    writer.write("H", 80)  #  port
+    writer.write("B", 0)  #  status
+    model_name = "Finder"
+    writer.write(
+        "10s", model_name.encode("utf-8")[:10].ljust(10, b"\x00")
+    )  # model name
+    writer.write("B", 0)  #  reserved
+    writer.write("H", 80)  #  http port
+    writer.write("H", 0)  #  device port
+    writer.write("H", 0)  #  tcp port
+    writer.write("H", 0)  #  udp port
+    writer.write("H", 0)  #  upload port
+    writer.write("H", 0)  #  multicast port
+    writer.write("B", 0)  #  network mode
+    writer.write("128s", "".encode("utf-8"))  #  DDNS url
+    writer.write("B", 0)  #  ip type
+    return writer.get_bytes()
 
 
 if __name__ == "__main__":

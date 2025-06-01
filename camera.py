@@ -11,6 +11,31 @@ from socket import (
 )
 
 
+class ByteReader:
+    def __init__(self, data):
+        self.data = data
+        self.offset = 0
+
+    def read(self, fmt):
+        size = struct.calcsize(fmt)
+        value = struct.unpack(fmt, self.data[self.offset : self.offset + size])
+        self.offset += size
+        return value
+
+
+class ByteWriter:
+    def __init__(self):
+        self.data = bytearray()  # Use bytearray for mutable byte storage
+
+    def write(self, fmt, *values):
+        # Pack the values according to the format and append to the data
+        packed_data = struct.pack(fmt, *values)
+        self.data.extend(packed_data)
+
+    def get_bytes(self):
+        return bytes(self.data)  # Return an immutable bytes object
+
+
 def main():
     print("Hello from python-camera!")
 
@@ -34,56 +59,59 @@ def main():
             data = receive_socket.recv(1024)
         except Exception as e:
             print(e)
-        print("got data", data)
-        print("packet", struct.unpack("B", data[0:1]))
-        print("client", struct.unpack("18s", data[1:19]))
-        print("mac", struct.unpack("18B", data[19:37]))
-        print("ip", struct.unpack("16s", data[37:53]))
+        reader = ByteReader(data)
+        packet = reader.read("B")[0]
+        print("packet", packet)
+        print("client", reader.read("18s")[0].rstrip(b"x\00"))
+        print("mac", reader.read("18B")[0])
+        print("ip", reader.read("16s")[0].rstrip(b"\x00"))
+        reader.read("16B")  # mask
+        reader.read("16B")  # gateway
+        reader.read("20B")  # passwd
+        reader.read("B")  # reserved
+        reader.read("H")  # port
+        reader.read("B")  # status
+        print("name", reader.read("10s")[0].rstrip(b"\x00"))
 
-        if struct.unpack("B", data[0:1])[0] == 1:
+        print("check", packet)
+        if packet == 1:
+            print("send response")
             send_socket.sendto(build_response(), ("<broadcast>", SEND_PORT))
 
 
 def build_response():
-    content = []
-    content.append(struct.pack("B", 11))
+    writer = ByteWriter()
+    writer.write("B", 11)
 
     model_id = "PyCam"
-    content.append(
-        struct.pack("18s", model_id.encode("utf-8")[:18].ljust(18, b"\x00"))
-    )  # model name
-    content.append(struct.pack("18B", *[0] * 18))  #  MAC
+    writer.write("18s", model_id.encode("utf-8")[:18].ljust(18, b"\x00"))  # model name
+    writer.write("18B", *[0] * 18)  #  MAC
 
     ipv4_address = "192.168.20.144"
-    content.append(
-        struct.pack("16s", ipv4_address.encode("utf-8")[:16].ljust(16, b"\x00"))
+    writer.write(
+        "16s", ipv4_address.encode("utf-8")[:16].ljust(16, b"\x00")
     )  # ip address
-    content.append(struct.pack("16B", *[0] * 16))  #  subnet mask
-    content.append(struct.pack("16B", *[0] * 16))  #  gateway
-    content.append(struct.pack("20B", *[0] * 20))  #  pasword
-    content.append(struct.pack("B", 0))  #  reserved
-    content.append(struct.pack("H", 80))  #  port
-    content.append(struct.pack("B", 0))  #  status
-    model_name = "My name"
-    content.append(
-        struct.pack("10s", model_name.encode("utf-8")[:10].ljust(10, b"\x00"))
+    writer.write("16B", *[0] * 16)  #  subnet mask
+    writer.write("16B", *[0] * 16)  #  gateway
+    writer.write("20B", *[0] * 20)  #  pasword
+    writer.write("B", 0)  #  reserved
+    writer.write("H", 80)  #  port
+    writer.write("B", 0)  #  status
+    model_name = "Camera"
+    writer.write(
+        "10s", model_name.encode("utf-8")[:10].ljust(10, b"\x00")
     )  # model name
-    content.append(struct.pack("B", 0))  #  reserved
-    content.append(struct.pack("H", 80))  #  http port
-    content.append(struct.pack("H", 0))  #  device port
-    content.append(struct.pack("H", 0))  #  tcp port
-    content.append(struct.pack("H", 0))  #  udp port
-    content.append(struct.pack("H", 0))  #  upload port
-    content.append(struct.pack("H", 0))  #  multicast port
-    content.append(struct.pack("B", 0))  #  network mode
-    content.append(struct.pack("128s", "".encode("utf-8")))  #  DDNS url
-    content.append(struct.pack("B", 0))  #  ip type
-    print("len", len(content))
-    print("len2", len(b"".join(content)))
-    print(b"".join(content))
-
-    # stitch together
-    return b"".join(content)
+    writer.write("B", 0)  #  reserved
+    writer.write("H", 80)  #  http port
+    writer.write("H", 0)  #  device port
+    writer.write("H", 0)  #  tcp port
+    writer.write("H", 0)  #  udp port
+    writer.write("H", 0)  #  upload port
+    writer.write("H", 0)  #  multicast port
+    writer.write("B", 0)  #  network mode
+    writer.write("128s", "".encode("utf-8"))  #  DDNS url
+    writer.write("B", 0)  #  ip type
+    return writer.get_bytes()
 
 
 if __name__ == "__main__":

@@ -41,7 +41,7 @@ def main():
     send_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
     send_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     try:
-        receive_socket.bind(("", RECEIVE_PORT))
+        receive_socket.bind(("255.255.255.255", RECEIVE_PORT))
     except OSError as e:
         print(e)
         raise ValueError("Socket opening error")
@@ -58,17 +58,19 @@ IP address: {response.ip}
 Port: {response.port}
 Model ID: {response.name}
 """)
-        # print(response)
+        print(len(data))
+        print(response)
 
-        if response.mode == 1:
-            send_socket.sendto(
+        if response.mode == 1 or response.mode == 6:
+            print("respond")
+            receive_socket.sendto(
                 build_packet(
                     mode=11,
                     model_id="PyCam",
                     ip_address="10.0.0.1",
                     model_name="Camera",
                 ),
-                ("<broadcast>", SEND_PORT),
+                ("255.255.255.255", SEND_PORT),
             )
 
 
